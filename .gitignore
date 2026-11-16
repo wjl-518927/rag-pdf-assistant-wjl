@@ -1,0 +1,9 @@
+# 虚拟环境
+venv/
+# 环境变量（千万别传 API Key 上去）
+.env
+# Python 缓存
+__pycache__/
+*.pyc
+# 数据文件（PDF 别传，占空间）
+data/

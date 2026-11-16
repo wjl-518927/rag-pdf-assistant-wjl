@@ -1,0 +1,27 @@
+[
+  {
+    "question": "这篇论文提出了什么核心方法？",
+    "standard_answer": "提出了UCTransNet，主要用Transformer从通道角度重新思考U-Net中的跳跃连接。",
+    "ground_truth_keywords": ["UCTransNet", "Transformer", "跳跃连接", "通道"]
+  },
+  {
+    "question": "CCT和CCA分别是什么？",
+    "standard_answer": "CCT是多尺度信道交叉注意的融合模块，CCA是多尺度信道交叉注意。",
+    "ground_truth_keywords": ["多尺度", "交叉注意", "融合"]
+  },
+  {
+    "question": "这篇论文主要解决什么医学图像问题？",
+    "standard_answer": "解决医学图像分割中的语义鸿沟问题，提升分割精度。",
+    "ground_truth_keywords": ["医学图像分割", "语义鸿沟", "分割精度"]
+  },
+  {
+    "question": "作者使用了哪些数据集来做实验？",
+    "standard_answer": "使用了Gland Segmentation和MoNuSeg数据集。",
+    "ground_truth_keywords": ["Gland", "MoNuSeg", "数据集"]
+  },
+  {
+    "question": "今天天气怎么样？",
+    "standard_answer": "我不知道，背景知识中未提及。",
+    "ground_truth_keywords": ["不知道", "未提及"]
+  }
+]
