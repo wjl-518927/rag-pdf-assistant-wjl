@@ -16,7 +16,7 @@ client_qdrant = QdrantClient(host="localhost", port=6333)
 
 # 2. 初始化大模型客户端 (把刚才申请的 Key 填在这里)
 
-llm_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+llm_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="http://172.24.160.1:11434/v1")
 
 def ask_rag(question):
     print(f"\n🗣️ 用户提问: {question}")
@@ -50,13 +50,13 @@ def ask_rag(question):
     
     print("🤖 大模型正在思考并生成回答...")
     response = llm_client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            {"role": "system", "content": "你是一个严谨的文档问答助手。"},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3 # 较低的温度让回答更严谨
-    )
+            model="qwen2.5:7b", # 换成你本地下载的模型名字
+            messages=[
+                {"role": "system", "content": "你是一个严谨的文档问答助手。"},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1
+        )
     
     print("\n✅ 最终回答：")
     print(response.choices[0].message.content)
