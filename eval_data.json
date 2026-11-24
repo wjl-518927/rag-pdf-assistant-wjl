@@ -1,12 +1,22 @@
 [
   {
-    "question": "如果忘记备份数据，可能会带来什么后果？",
-    "standard_answer": "我不知道，背景知识中未提及。",
-    "ground_truth_keywords": ["不知道", "未提及"]
+    "question": "这篇论文提出了什么核心方法？",
+    "standard_answer": "提出了UC-TransNet，核心是用CTrans模块取代了U-Net中传统的跳过连接，从通道角度考虑注意力机制。",
+    "ground_truth_keywords": ["UC-TransNet", "CTrans", "跳过连接", "通道角度"]
   },
   {
-    "question": "CTrans模块是由哪两个子模块组成的？",
-    "standard_answer": "由CCT和CCA组成。",
-    "ground_truth_keywords": ["CCT", "CCA"]
+    "question": "CTrans模块由哪两个子模块组成？",
+    "standard_answer": "由CCT（多尺度信道交叉融合）和CCA（引导融合后的多尺度信道交叉注意）两个子模块组成。",
+    "ground_truth_keywords": ["CCT", "CCA", "多尺度", "交叉注意"]
+  },
+  {
+    "question": "U-Net使用简单跳过连接面临哪些挑战或局限性？",
+    "standard_answer": "1) 由于编解码器特征集不兼容，并非每个跳过连接都有效，有些甚至产生负面影响；2) 原始U-Net在某些数据集上表现比没有跳过连接的U-Net更差。",
+    "ground_truth_keywords": ["不兼容", "负面影响", "更差"]
+  },
+  {
+    "question": "今天天气怎么样？",
+    "standard_answer": "我不知道，背景知识中未提及。",
+    "ground_truth_keywords": ["不知道", "未提及"]
   }
 ]
