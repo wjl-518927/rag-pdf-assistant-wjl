@@ -19,7 +19,6 @@ embedding_model = SentenceTransformer('BAAI/bge-small-zh-v1.5')
 qdrant_client = QdrantClient(host="localhost", port=6333)
 
 # ================= 大模型配置 =================
-# 方案 B：使用云端 DeepSeek
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 llm_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
 MODEL_NAME = "deepseek-chat"
@@ -41,40 +40,69 @@ def process_pdf(file):
     with open(txt_path, "r", encoding="utf-8") as f:
         full_text = f.read()
         
-    # === 核心新增：每次解析前，先清空旧集合 ===
+    # 每次解析前，先清空旧集合，防止历史数据污染
     if qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
         qdrant_client.delete_collection(collection_name=COLLECTION_NAME)
         print("🧹 检测到旧数据，已自动清空向量库。")
         
-    # 重新创建空集合
     qdrant_client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=VectorParams(size=512, distance=Distance.COSINE),
     )
-    # ======================================
-        
-    # 切块
-    chunk_size = 300
+    
+    # ================= 语义切块 =================
+    paragraphs = full_text.split('\n')
     chunks = []
-    for i in range(0, len(full_text), chunk_size):
-        chunk = full_text[i:i+chunk_size]
-        if len(chunk.strip()) < 50: continue
-        chunks.append(chunk)
-        
-    # 向量化入库
-    points = []
+    current_chunk = ""
+    
+    for p in paragraphs:
+        p = p.strip()
+        if not p:
+            continue
+        if len(current_chunk) + len(p) < 400:
+            current_chunk += p + "\n"
+        else:
+            if len(current_chunk) > 50:
+                chunks.append(current_chunk.strip())
+            current_chunk = p + "\n"
+            
+    if len(current_chunk) > 50:
+        chunks.append(current_chunk.strip())
+
+    # ================= 正则二次审查（白名单保底） =================
+    print(f"🕵️ 正在进行正则过滤，共 {len(chunks)} 个片段...")
+    
+    # 只要包含这些核心词，就认为是有效数据
+    valid_keywords = ["U-Net", "UCTransNet", "CTrans", "CCT", "CCA", "Transformer", "编码器", "解码器", "医学图像", "分割"]
+    
+    clean_chunks = []
     for chunk in chunks:
+        # 只要包含白名单中的任何一个词，就保留
+        if any(k in chunk for k in valid_keywords):
+            clean_chunks.append(chunk)
+        else:
+            print(f"🗑️ 已过滤无关块: {chunk[:20]}...")
+            
+    if not clean_chunks:
+        print("⚠️ 警告：过滤太严，所有块都被删光了！请检查切块或关键词。")
+        return "⚠️ 解析失败：所有片段都被判定为无效噪音。请调整切块策略或过滤词表。"
+        
+    print(f"✅ 审查完成，保留了 {len(clean_chunks)} 个有效片段。")
+
+    # ================= 向量化入库 =================
+    points = []
+    for chunk in clean_chunks: 
         vector = embedding_model.encode(chunk).tolist()
         points.append(PointStruct(id=str(uuid.uuid4()), vector=vector, payload={"text": chunk}))
         
     qdrant_client.upsert(collection_name=COLLECTION_NAME, wait=True, points=points)
-    return f"✅ 解析成功！旧库已清空，重新存入 {len(chunks)} 个干净片段。"
+    return f"✅ 解析成功！共存入 {len(clean_chunks)} 个纯净片段。现在可以开始提问了！"
+
 
 def chat_with_paper(question, history):
     if not question:
         return "", history
     
-    # 1. 检索
     query_vector = embedding_model.encode(question).tolist()
     search_result = qdrant_client.query_points(
         collection_name=COLLECTION_NAME,
@@ -90,10 +118,8 @@ def chat_with_paper(question, history):
     contexts = [hit.payload['text'] for hit in search_result.points]
     context_text = "\n\n---\n\n".join(contexts)
     
-    # 打印检索结果，方便排查
     print(f"\n🔍【Qdrant 捞出的真实原文】:\n{context_text}\n")
 
-    # 2. 拼装 Prompt
     prompt = f"""
     【系统指令】
     你是一个严谨的文档问答机器。你唯一的任务是从下方的【背景知识】中提取信息来回答用户。
@@ -110,12 +136,11 @@ def chat_with_paper(question, history):
     {question}
     """
     
-    # 3. 调用大模型
     try:
         response = llm_client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
-                {"role": "system", "content": "你是一个精通数据库、机组和 C++ 的计算机专家。"},
+                {"role": "system", "content": "你是一个严谨的文档问答助手。"},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1
@@ -129,9 +154,9 @@ def chat_with_paper(question, history):
     return "", history
 
 # ================= 前端界面 =================
-with gr.Blocks(title="CS 知识库问答助手") as demo:
-    gr.Markdown("# 💻 计算机知识专属问答系统")
-    gr.Markdown("请确保 data/test_clean.txt 文件存在，点击解析后即可提问。")
+with gr.Blocks(title="文档智能问答系统") as demo:
+    gr.Markdown("# 📚 专属文档问答系统")
+    gr.Markdown("请确保 data/test_clean.txt 文件已准备好，点击解析入库后即可提问。")
     
     with gr.Row():
         with gr.Column(scale=1):
@@ -142,10 +167,9 @@ with gr.Blocks(title="CS 知识库问答助手") as demo:
         with gr.Column(scale=2):
             chatbot = gr.Chatbot(label="对话记录", height=500)
             with gr.Row():
-                msg = gr.Textbox(label="输入你的问题", placeholder="例如：const修饰指针有什么不同？", scale=4)
+                msg = gr.Textbox(label="输入你的问题", placeholder="例如：CTrans模块由哪两个子模块组成？", scale=4)
                 clear = gr.Button("清空对话")
                 
-    # 绑定事件
     upload_btn.click(process_pdf, inputs=file_input, outputs=status_text)
     msg.submit(chat_with_paper, inputs=[msg, chatbot], outputs=[msg, chatbot])
     clear.click(lambda: None, None, chatbot, queue=False)
